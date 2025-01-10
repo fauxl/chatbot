@@ -1,6 +1,7 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+import os
 
 # Global variables to avoid repeated loading
 model = None
@@ -135,6 +136,7 @@ def display_document_embedding_page():
                 help="Inserisci un nome se hai scelto di creare un nuovo database."
             )
 
+        # Add a missing submit button here
         save_button = st.form_submit_button("Salva i documenti")
 
     if save_button:
