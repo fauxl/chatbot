@@ -28,17 +28,21 @@ def load_italian_model():
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
+    
+MAX_HISTORY_LENGTH = 4
+
 def generate_italian_response(question, tokenizer, model):
-    # Add system-level instruction
+    # Add a system-level instruction
     system_prompt = "You are a helpful assistant that responds in Italian with accurate and concise answers.\n"
     
-    # Build conversation history
+    # Build the prompt with limited history
+    recent_history = st.session_state.history[-MAX_HISTORY_LENGTH:]
     conversation_history = system_prompt
-    for message in st.session_state.history:
+    for message in recent_history:
         conversation_history += f"{message['role']}: {message['content']}\n"
     conversation_history += f"user: {question}\nassistant:"
 
-    # Tokenize and generate
+    # Tokenize and generate the response
     inputs = tokenizer(conversation_history, return_tensors="pt", truncation=True)
     outputs = model.generate(
         inputs.input_ids,
@@ -49,10 +53,10 @@ def generate_italian_response(question, tokenizer, model):
     )
     response = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
-    # Validate response to avoid repetition
+    # Validate and sanitize the response
     if response.lower() == question.lower():
         response = "Non sono sicuro di come rispondere a questa domanda."
-    
+
     return response
 
 def display_chatbot_page():
@@ -65,33 +69,31 @@ def display_chatbot_page():
     # Load the LLM model
     tokenizer, model = load_italian_model()
 
-    # Chat history
+    # Initialize chat history
     if "history" not in st.session_state:
         st.session_state.history = []
 
-    # Input dell'utente
+    # User input
     question = st.chat_input("Fai una domanda")
 
     if question:
-        # Salva la domanda dell'utente nella cronologia
+        # Append user question to history
         st.session_state.history.append({"role": "user", "content": question})
         with st.chat_message("user"):
             st.markdown(question)
 
-        # Generate a meaningful response
+        # Generate response
         response = generate_italian_response(question, tokenizer, model)
+        st.session_state.history.append({"role": "assistant", "content": response})
 
-        # Mostra la risposta
+        # Display assistant response
         with st.chat_message("assistant"):
             st.markdown(response)
 
-        # Salva la risposta del chatbot nella cronologia
-        st.session_state.history.append({"role": "assistant", "content": response})
-
-    # Visualizza la cronologia
-    #for message in st.session_state.history:
-     #   with st.chat_message(message["role"]):
-      #      st.markdown(message["content"])
+    # Optionally display truncated conversation history
+    for message in st.session_state.history[-MAX_HISTORY_LENGTH:]:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 def display_document_embedding_page():
     st.title("Document Embedding Page")
