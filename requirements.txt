@@ -1,0 +1,11 @@
+langchain_community
+langchain
+langchain_huggingface
+faiss-cpu
+sentence-transformers
+InstructorEmbedding
+pypdf
+streamlit
+pynvml
+torch
+python-dotenv
