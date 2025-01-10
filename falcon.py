@@ -71,14 +71,14 @@ def embedding_storing( split, create_new_vs, existing_vector_store, new_vs_name)
 def prepare_rag_llm(
     token, vector_store_list, temperature, max_length
 ):
-    instructor_embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/distiluse-base-multilingual-cased-v1", 
+    instructor_embeddings = HuggingFaceEmbeddings(model_name="llama-2", 
                                            model_kwargs={'device': 'cpu'})
     # Load db
     loaded_db = FAISS.load_local(
         f"vector store/{vector_store_list}", instructor_embeddings, allow_dangerous_deserialization=True
     )
     llm = HuggingFaceHub(
-        repo_id = 'mrm8488',
+        repo_id = 'tiiuae/falcon-7b-instruct',
         model_kwargs={"temperature": temperature, "max_length": max_length},
         huggingfacehub_api_token=token
     )
