@@ -10,3 +10,4 @@ pynvml
 torch
 python-dotenv
 PyPDF2
+googletrans
