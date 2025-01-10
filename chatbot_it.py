@@ -1,21 +1,40 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import psutil
+import torch
 
-# Load the LLM model once
-@st.cache_resource
+# Global variables to avoid repeated loading
+model = None
+tokenizer = None
+
+# Function to load the model
 def load_italian_model():
-    model_name = "microsoft/DialoGPT-medium"  # You can switch to "distilgpt2" for testing
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+    global model, tokenizer
+    if model is None or tokenizer is None:
+        model_name = "distilgpt2"  # Use a smaller model to reduce memory usage
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
 
+# Function to log memory usage
+def log_memory_usage():
+    memory = psutil.virtual_memory()
+    st.write(f"Memory Usage: {memory.percent}% - Available: {memory.available / (1024**2):.2f} MB")
+
+# Function to clear GPU memory if available
+def clear_memory():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
+# Generate responses
 def generate_italian_response(question, tokenizer, model):
     try:
         # Add a system-level instruction
         system_prompt = "You are a helpful assistant that responds in Italian with accurate and concise answers.\n"
         
-        # Limit conversation history to the last 4 exchanges
-        MAX_HISTORY_LENGTH = 4
+        # Limit conversation history to the last 5 exchanges
+        MAX_HISTORY_LENGTH = 5
         recent_history = st.session_state.history[-MAX_HISTORY_LENGTH:]
         conversation_history = system_prompt
         for message in recent_history:
@@ -25,8 +44,8 @@ def generate_italian_response(question, tokenizer, model):
         # Tokenize and ensure input length is within model limits
         inputs = tokenizer(conversation_history, return_tensors="pt", truncation=True, max_length=1024)
 
-        # Debugging: Check input length
-        print("Input Token Length:", inputs.input_ids.shape[1])
+        # Log memory usage before generating
+        log_memory_usage()
 
         # Generate response
         outputs = model.generate(
@@ -38,6 +57,9 @@ def generate_italian_response(question, tokenizer, model):
         )
         response = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
+        # Clear memory after generation
+        clear_memory()
+
         # Validate response to avoid repetition
         if response.lower() == question.lower():
             response = "Non sono sicuro di come rispondere a questa domanda."
@@ -47,6 +69,7 @@ def generate_italian_response(question, tokenizer, model):
         print("Error during generation:", e)
         return "Mi dispiace, si è verificato un errore durante la generazione della risposta."
 
+# Display the chatbot page
 def display_chatbot_page():
     st.title("Chatbot Multilingua")
     st.markdown("Questo chatbot supporta l'italiano e altre lingue. Inizia facendo una domanda qui sotto!")
@@ -81,6 +104,7 @@ def display_chatbot_page():
             role = "Utente" if message["role"] == "user" else "Assistente"
             st.write(f"**{role}:** {message['content']}")
 
+# Display the document embedding page
 def display_document_embedding_page():
     st.title("Document Embedding Page")
     st.markdown("""Questa pagina permette di caricare documenti come base di conoscenza personalizzata per il chatbot.""")
@@ -129,6 +153,7 @@ def display_document_embedding_page():
         else:
             st.error("Devi caricare almeno un documento.")
 
+# Main function
 def main():
     st.sidebar.title("Seleziona un'opzione")
     selection = st.sidebar.radio("Vai a:", ["Chatbot Multilingua", "Document Embedding"])
