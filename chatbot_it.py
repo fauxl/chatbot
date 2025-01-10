@@ -1,4 +1,47 @@
+import streamlit as st
+import os
+import falcon
+import torch
+import time
+import gc
+from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+from dotenv import load_dotenv
 from googletrans import Translator
+
+load_dotenv()
+
+token = os.getenv("API_KEY")
+
+# Memory management functions
+def clear_gpu_memory():
+    torch.cuda.empty_cache()
+    gc.collect()
+
+def wait_until_enough_gpu_memory(min_memory_available, max_retries=10, sleep_time=5):
+    nvmlInit()
+    handle = nvmlDeviceGetHandleByIndex(torch.cuda.current_device())
+
+    for _ in range(max_retries):
+        info = nvmlDeviceGetMemoryInfo(handle)
+        if info.free >= min_memory_available:
+            break
+        print(f"Waiting for {min_memory_available} bytes of free GPU memory. Retrying in {sleep_time} seconds...")
+        time.sleep(sleep_time)
+    else:
+        raise RuntimeError(f"Failed to acquire {min_memory_available} bytes of free GPU memory after {max_retries} retries.")
+
+def main():
+    # Call memory management functions before starting Streamlit app
+    clear_gpu_memory()
+
+    st.sidebar.title("Select From The List Below: ")
+    selection = st.sidebar.radio("GO TO: ", ["Document Embedding", "RAG Chatbot"])
+
+    if selection == "Document Embedding":
+        display_document_embedding_page()
+
+    elif selection == "RAG Chatbot":
+        display_chatbot_page()
 
 def display_chatbot_page():
     st.title("Multi Source Chatbot")
@@ -89,3 +132,82 @@ def display_chatbot_page():
     # Source documents
     with st.expander("Chat History and Source Information"):
         st.write(st.session_state.source)
+
+def display_document_embedding_page():
+    st.title("Document Embedding Page")
+    st.markdown("""This page is used to upload the documents as the custom knowledge base for the chatbot.
+                  **NOTE:** If you are uploading a new file (for the first time) please insert a new vector store name to store it in vector database
+                """)
+
+    with st.form("document_input"):
+        document = st.file_uploader(
+            "Knowledge Documents", type=['pdf', 'txt'], help=".pdf or .txt file", accept_multiple_files=True
+        )
+
+        row_1 = st.columns([2, 1, 1])
+        with row_1[0]:
+            instruct_embeddings = st.text_input(
+                "Model Name of the Instruct Embeddings", value="sentence-transformers/distiluse-base-multilingual-cased-v1"
+            )
+        
+        with row_1[1]:
+            chunk_size = st.number_input(
+                "Chunk Size", value=200, min_value=0, step=1,
+            )
+        
+        with row_1[2]:
+            chunk_overlap = st.number_input(
+                "Chunk Overlap", value=10, min_value=0, step=1,
+                help="Lower than chunk size"
+            )
+        
+        row_2 = st.columns(2)
+        with row_2[0]:
+            # List the existing vector stores
+            vector_store_list = os.listdir("vector store/")
+            vector_store_list = ["<New>"] + vector_store_list
+            
+            existing_vector_store = st.selectbox(
+                "Vector Store to Merge the Knowledge", vector_store_list,
+                help="""Which vector store to add the new documents.
+                Choose <New> to create a new vector store.
+                """
+            )
+
+        with row_2[1]:
+            new_vs_name = st.text_input(
+                "New Vector Store Name", value="new_vector_store_name",
+                help="""If choose <New> in the dropdown, name the new vector store. Otherwise, fill in the existing vector store to merge."""
+            )
+
+        save_button = st.form_submit_button("Save vector store")
+
+    if save_button:
+        if document is not None:
+            combined_content = ""
+            for file in document:
+                if file.name.endswith(".pdf"):
+                    combined_content += falcon.read_pdf(file)
+                elif file.name.endswith(".txt"):
+                    combined_content += falcon.read_txt(file)
+                else:
+                    st.error("Check if the uploaded file is .pdf or .txt")
+
+            split = falcon.split_doc(combined_content, chunk_size, chunk_overlap)
+
+            create_new_vs = None
+            if existing_vector_store == "<New>" and new_vs_name != "":
+                create_new_vs = True
+            elif existing_vector_store != "<New>" and new_vs_name != "":
+                create_new_vs = False
+            else:
+                st.error("Check the 'Vector Store to Merge the Knowledge' and 'New Vector Store Name'")
+
+            falcon.embedding_storing(split, create_new_vs, existing_vector_store, new_vs_name)
+            print(f'"Document info":{combined_content}')    
+            print(f'"Splitted info":{split}')   
+        else:
+            st.warning("Please upload at least one file.")
+
+if __name__ == "__main__":
+    main()
