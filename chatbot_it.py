@@ -1,6 +1,5 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
-import psutil
 import torch
 
 # Global variables to avoid repeated loading
@@ -15,11 +14,6 @@ def load_italian_model():
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
-
-# Function to log memory usage
-def log_memory_usage():
-    memory = psutil.virtual_memory()
-    st.write(f"Memory Usage: {memory.percent}% - Available: {memory.available / (1024**2):.2f} MB")
 
 # Function to clear GPU memory if available
 def clear_memory():
@@ -43,9 +37,6 @@ def generate_italian_response(question, tokenizer, model):
 
         # Tokenize and ensure input length is within model limits
         inputs = tokenizer(conversation_history, return_tensors="pt", truncation=True, max_length=1024)
-
-        # Log memory usage before generating
-        log_memory_usage()
 
         # Generate response
         outputs = model.generate(
