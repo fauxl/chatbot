@@ -78,7 +78,7 @@ def prepare_rag_llm(
         f"vector store/{vector_store_list}", instructor_embeddings, allow_dangerous_deserialization=True
     )
     llm = HuggingFaceHub(
-        repo_id = 'tiiuae/falcon-7b-instruct',
+        repo_id = 'mistralai/Mistral-7B-v0.1',
         model_kwargs={"temperature": temperature, "max_length": max_length},
         huggingfacehub_api_token=token
     )
