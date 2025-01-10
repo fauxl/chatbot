@@ -1,37 +1,57 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
+import PyPDF2
 import os
+import torch
 
-# Global variables to avoid repeated loading
+# Global variables for model and document content
 model = None
 tokenizer = None
+document_content = ""
 
 # Function to load the model
 def load_italian_model():
     global model, tokenizer
     if model is None or tokenizer is None:
-        model_name = "distilgpt2"  # Use a smaller model to reduce memory usage
+        model_name = "distilgpt2"  # Use a smaller model for better performance
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
 
-# Function to clear GPU memory if available
+# Function to clear GPU memory
 def clear_memory():
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
 
+# Function to extract text from PDF
+def extract_text_from_pdf(file):
+    try:
+        pdf_reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text
+    except Exception as e:
+        print(f"Error extracting text from PDF: {e}")
+        return "Impossibile estrarre il testo dal documento."
+
 # Generate responses
-def generate_italian_response(question, tokenizer, model):
+def generate_italian_response(question, tokenizer, model, document_content):
     try:
         # Add a system-level instruction
         system_prompt = "You are a helpful assistant that responds in Italian with accurate and concise answers.\n"
         
+        # Append document content as context
+        if document_content:
+            document_context = f"Here is relevant information from the document:\n{document_content}\n"
+        else:
+            document_context = "No document content provided.\n"
+
         # Limit conversation history to the last 5 exchanges
         MAX_HISTORY_LENGTH = 5
         recent_history = st.session_state.history[-MAX_HISTORY_LENGTH:]
-        conversation_history = system_prompt
+        conversation_history = system_prompt + document_context
         for message in recent_history:
             conversation_history += f"{message['role']}: {message['content']}\n"
         conversation_history += f"user: {question}\nassistant:"
@@ -42,29 +62,27 @@ def generate_italian_response(question, tokenizer, model):
         # Generate response
         outputs = model.generate(
             inputs.input_ids,
-            max_length=150,          # Limit the response length
-            temperature=0.7,         # Adjust creativity
-            top_p=0.9,               # Use nucleus sampling
-            repetition_penalty=1.2,  # Penalize repeated phrases
+            max_length=150,
+            temperature=0.7,
+            top_p=0.9,
+            repetition_penalty=1.2,
         )
         response = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
         # Clear memory after generation
         clear_memory()
 
-        # Validate response to avoid repetition
-        if response.lower() == question.lower():
-            response = "Non sono sicuro di come rispondere a questa domanda."
-
         return response
     except Exception as e:
-        print("Error during generation:", e)
+        print(f"Error during response generation: {e}")
         return "Mi dispiace, si è verificato un errore durante la generazione della risposta."
 
-# Display the chatbot page
+# Display chatbot page
 def display_chatbot_page():
-    st.title("Chatbot Multilingua")
-    st.markdown("Questo chatbot supporta l'italiano e altre lingue. Inizia facendo una domanda qui sotto!")
+    global document_content
+
+    st.title("Chatbot Multilingua con Conoscenza da Documenti")
+    st.markdown("Questo chatbot può rispondere in base ai documenti caricati. Fai una domanda qui sotto!")
 
     # Load the LLM model
     tokenizer, model = load_italian_model()
@@ -82,8 +100,8 @@ def display_chatbot_page():
         with st.chat_message("user"):
             st.markdown(question)
 
-        # Generate response
-        response = generate_italian_response(question, tokenizer, model)
+        # Generate response using the document content
+        response = generate_italian_response(question, tokenizer, model, document_content)
         st.session_state.history.append({"role": "assistant", "content": response})
 
         # Display assistant response
@@ -96,64 +114,35 @@ def display_chatbot_page():
             role = "Utente" if message["role"] == "user" else "Assistente"
             st.write(f"**{role}:** {message['content']}")
 
-# Display the document embedding page
+# Display document embedding page
 def display_document_embedding_page():
-    st.title("Document Embedding Page")
-    st.markdown("""Questa pagina permette di caricare documenti come base di conoscenza personalizzata per il chatbot.""")
+    global document_content
+
+    st.title("Caricamento Documenti")
+    st.markdown("Carica un documento per aggiungere conoscenza al chatbot.")
 
     with st.form("document_input"):
-        documents = st.file_uploader(
-            "Carica i documenti", type=['pdf', 'txt'], accept_multiple_files=True,
-            help="Supporta file in formato PDF e TXT."
+        document = st.file_uploader(
+            "Carica un documento (PDF)", type=['pdf'], help="Carica un file PDF contenente il testo."
         )
 
-        row_1 = st.columns([2, 1, 1])
-        with row_1[0]:
-            instruct_embeddings = st.text_input(
-                "Nome del modello di embedding", value="sentence-transformers/distiluse-base-multilingual-cased-v1"
-            )
-        with row_1[1]:
-            chunk_size = st.number_input(
-                "Dimensione dei blocchi (chunk size)", value=200, min_value=0, step=1,
-            )
-        with row_1[2]:
-            chunk_overlap = st.number_input(
-                "Sovrapposizione dei blocchi", value=10, min_value=0, step=1,
-                help="Deve essere inferiore alla dimensione dei blocchi."
-            )
+        submit_button = st.form_submit_button("Elabora Documento")
 
-        row_2 = st.columns(2)
-        with row_2[0]:
-            vector_store_list = os.listdir("vector store/") if os.path.exists("vector store/") else []
-            vector_store_list = ["<Nuovo Database>"] + vector_store_list
-            selected_store = st.selectbox(
-                "Seleziona o crea un database vettoriale", vector_store_list
-            )
-
-        with row_2[1]:
-            new_store_name = st.text_input(
-                "Nome del nuovo database", value="", 
-                help="Inserisci un nome se hai scelto di creare un nuovo database."
-            )
-
-        # Add a missing submit button here
-        save_button = st.form_submit_button("Salva i documenti")
-
-    if save_button:
-        if documents:
-            # Placeholder for processing documents (replace with actual logic)
-            st.success("Documenti elaborati e salvati con successo!")
+    if submit_button:
+        if document:
+            document_content = extract_text_from_pdf(document)
+            st.success("Documento elaborato con successo!")
         else:
-            st.error("Devi caricare almeno un documento.")
+            st.error("Devi caricare un documento valido.")
 
 # Main function
 def main():
     st.sidebar.title("Seleziona un'opzione")
-    selection = st.sidebar.radio("Vai a:", ["Chatbot Multilingua", "Document Embedding"])
+    selection = st.sidebar.radio("Vai a:", ["Chatbot Multilingua", "Caricamento Documenti"])
 
     if selection == "Chatbot Multilingua":
         display_chatbot_page()
-    elif selection == "Document Embedding":
+    elif selection == "Caricamento Documenti":
         display_document_embedding_page()
 
 if __name__ == "__main__":
