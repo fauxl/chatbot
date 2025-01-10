@@ -28,17 +28,31 @@ def load_italian_model():
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
-
 def generate_italian_response(question, tokenizer, model):
-    inputs = tokenizer(question, return_tensors="pt")
+    # Add system-level instruction
+    system_prompt = "You are a helpful assistant that responds in Italian with accurate and concise answers.\n"
+    
+    # Build conversation history
+    conversation_history = system_prompt
+    for message in st.session_state.history:
+        conversation_history += f"{message['role']}: {message['content']}\n"
+    conversation_history += f"user: {question}\nassistant:"
+
+    # Tokenize and generate
+    inputs = tokenizer(conversation_history, return_tensors="pt", truncation=True)
     outputs = model.generate(
         inputs.input_ids,
-        max_length=100,          # Limit the response length
-        temperature=0.7,         # Adjust creativity; lower values = more deterministic
-        top_p=0.9,               # Use nucleus sampling to control randomness
-        repetition_penalty=1.2,  # Penalize repeated phrases
+        max_length=150,
+        temperature=0.7,
+        top_p=0.9,
+        repetition_penalty=1.2,
     )
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+
+    # Validate response to avoid repetition
+    if response.lower() == question.lower():
+        response = "Non sono sicuro di come rispondere a questa domanda."
+    
     return response
 
 def display_chatbot_page():
