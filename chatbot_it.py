@@ -78,7 +78,7 @@ def generate_italian_response(question, tokenizer, model, document_content):
 def display_chatbot_page():
     global document_content
 
-    st.title("Chatbot Multilingua con Conoscenza da Documenti")
+    st.title("Chatbot ca Bot")
     st.markdown("Questo chatbot può rispondere in base ai documenti caricati. Fai una domanda qui sotto!")
 
     # Load the LLM model
