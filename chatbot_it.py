@@ -24,14 +24,20 @@ def main():
 # Load the LLM model once
 @st.cache_resource
 def load_italian_model():
-    model_name = "distilgpt2"
+    model_name = "microsoft/DialoGPT-medium"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
 
 def generate_italian_response(question, tokenizer, model):
     inputs = tokenizer(question, return_tensors="pt")
-    outputs = model.generate(inputs.input_ids, max_length=200, temperature=0.7)
+    outputs = model.generate(
+        inputs.input_ids,
+        max_length=100,          # Limit the response length
+        temperature=0.7,         # Adjust creativity; lower values = more deterministic
+        top_p=0.9,               # Use nucleus sampling to control randomness
+        repetition_penalty=1.2,  # Penalize repeated phrases
+    )
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return response
 
