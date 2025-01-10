@@ -9,3 +9,4 @@ streamlit
 pynvml
 torch
 python-dotenv
+PyPDF2
