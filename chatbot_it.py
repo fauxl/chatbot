@@ -118,8 +118,7 @@ def display_chatbot_page():
         answer, doc_source = falcon.generate_answer(question, token)
 
         # Translate answer to Italian
-        translated_result = translator.translate(answer, src='en', dest='it')
-        translated_answer = translated_result.text
+        translated_answer = translate_text(answer)
 
         with st.chat_message("assistant"):
             st.write(translated_answer)  # Display the translated answer
@@ -134,6 +133,12 @@ def display_chatbot_page():
     with st.expander("Chat History and Source Information"):
         st.write(st.session_state.source)
 
+async def translate_text(textToTranslate):
+        async with Translator() as translator:
+        result = await translator.translate(textToTranslate, dest='it')
+        print(result.text)
+        return result.text# <Translated src=ko dest=en text=Good evening. pronunciation=Good evening.>
+    
 def display_document_embedding_page():
     st.title("Document Embedding Page")
     st.markdown("""This page is used to upload the documents as the custom knowledge base for the chatbot.
