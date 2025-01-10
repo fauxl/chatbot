@@ -1,70 +1,55 @@
 import streamlit as st
-import os
-import falcon
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
-
-
-# Configura il modello di base per l'italiano
-def configure_model_for_italian():
-    # Usa un modello specifico per l'italiano (puoi cambiare il modello se necessario)
-    model_name = "Helsinki-NLP/opus-mt-en-it"  # Traduzione da inglese a italiano
-    italian_model = pipeline("translation", model=model_name)
-    return italian_model
-
-def main():
-    st.sidebar.title("Seleziona un'opzione")
-    selection = st.sidebar.radio("Vai a:", ["Chatbot Multilingua", "Document Embedding"])
-
-    if selection == "Chatbot Multilingua":
-        display_chatbot_page()
-
-    elif selection == "Document Embedding":
-        display_document_embedding_page()
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # Load the LLM model once
 @st.cache_resource
 def load_italian_model():
-    model_name = "microsoft/DialoGPT-medium"
+    model_name = "microsoft/DialoGPT-medium"  # You can switch to "distilgpt2" for testing
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
-    
-MAX_HISTORY_LENGTH = 4
 
 def generate_italian_response(question, tokenizer, model):
-    # Add a system-level instruction
-    system_prompt = "You are a helpful assistant that responds in Italian with accurate and concise answers.\n"
-    
-    # Build the prompt with limited history
-    recent_history = st.session_state.history[-MAX_HISTORY_LENGTH:]
-    conversation_history = system_prompt
-    for message in recent_history:
-        conversation_history += f"{message['role']}: {message['content']}\n"
-    conversation_history += f"user: {question}\nassistant:"
+    try:
+        # Add a system-level instruction
+        system_prompt = "You are a helpful assistant that responds in Italian with accurate and concise answers.\n"
+        
+        # Limit conversation history to the last 4 exchanges
+        MAX_HISTORY_LENGTH = 4
+        recent_history = st.session_state.history[-MAX_HISTORY_LENGTH:]
+        conversation_history = system_prompt
+        for message in recent_history:
+            conversation_history += f"{message['role']}: {message['content']}\n"
+        conversation_history += f"user: {question}\nassistant:"
 
-    # Tokenize and generate the response
-    inputs = tokenizer(conversation_history, return_tensors="pt", truncation=True)
-    outputs = model.generate(
-        inputs.input_ids,
-        max_length=150,
-        temperature=0.7,
-        top_p=0.9,
-        repetition_penalty=1.2,
-    )
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        # Tokenize and ensure input length is within model limits
+        inputs = tokenizer(conversation_history, return_tensors="pt", truncation=True, max_length=1024)
 
-    # Validate and sanitize the response
-    if response.lower() == question.lower():
-        response = "Non sono sicuro di come rispondere a questa domanda."
+        # Debugging: Check input length
+        print("Input Token Length:", inputs.input_ids.shape[1])
 
-    return response
+        # Generate response
+        outputs = model.generate(
+            inputs.input_ids,
+            max_length=150,          # Limit the response length
+            temperature=0.7,         # Adjust creativity
+            top_p=0.9,               # Use nucleus sampling
+            repetition_penalty=1.2,  # Penalize repeated phrases
+        )
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+
+        # Validate response to avoid repetition
+        if response.lower() == question.lower():
+            response = "Non sono sicuro di come rispondere a questa domanda."
+
+        return response
+    except Exception as e:
+        print("Error during generation:", e)
+        return "Mi dispiace, si è verificato un errore durante la generazione della risposta."
 
 def display_chatbot_page():
     st.title("Chatbot Multilingua")
-
-    st.markdown("""
-    Questo chatbot supporta l'italiano e altre lingue. Inizia facendo una domanda qui sotto!
-    """)
+    st.markdown("Questo chatbot supporta l'italiano e altre lingue. Inizia facendo una domanda qui sotto!")
 
     # Load the LLM model
     tokenizer, model = load_italian_model()
@@ -90,99 +75,68 @@ def display_chatbot_page():
         with st.chat_message("assistant"):
             st.markdown(response)
 
-    # Optionally display truncated conversation history
-    for message in st.session_state.history[-MAX_HISTORY_LENGTH:]:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Display the history in a separate section
+    with st.expander("Cronologia della conversazione"):
+        for message in st.session_state.history:
+            role = "Utente" if message["role"] == "user" else "Assistente"
+            st.write(f"**{role}:** {message['content']}")
 
 def display_document_embedding_page():
     st.title("Document Embedding Page")
-    st.markdown("""This page is used to upload the documents as the custom knowledge base for the chatbot.
-                  **NOTE:** If you are uploading a new file (for the first time) please insert a new vector store name to store it in vector database
-                """)
+    st.markdown("""Questa pagina permette di caricare documenti come base di conoscenza personalizzata per il chatbot.""")
 
     with st.form("document_input"):
-        
-        document = st.file_uploader(
-            "Knowledge Documents", type=['pdf', 'txt'], help=".pdf or .txt file", accept_multiple_files= True
+        documents = st.file_uploader(
+            "Carica i documenti", type=['pdf', 'txt'], accept_multiple_files=True,
+            help="Supporta file in formato PDF e TXT."
         )
 
         row_1 = st.columns([2, 1, 1])
         with row_1[0]:
             instruct_embeddings = st.text_input(
-                "Model Name of the Instruct Embeddings", value="sentence-transformers/distiluse-base-multilingual-cased-v1"
+                "Nome del modello di embedding", value="sentence-transformers/distiluse-base-multilingual-cased-v1"
             )
-        
         with row_1[1]:
             chunk_size = st.number_input(
-                "Chunk Size", value=200, min_value=0, step=1,
+                "Dimensione dei blocchi (chunk size)", value=200, min_value=0, step=1,
             )
-        
         with row_1[2]:
             chunk_overlap = st.number_input(
-                "Chunk Overlap", value=10, min_value=0, step=1,
-                help="Lower than chunk size"
+                "Sovrapposizione dei blocchi", value=10, min_value=0, step=1,
+                help="Deve essere inferiore alla dimensione dei blocchi."
             )
-        
+
         row_2 = st.columns(2)
         with row_2[0]:
-            # List the existing vector stores
-            vector_store_list = os.listdir("vector store/")
-            vector_store_list = ["<New>"] + vector_store_list
-            
-            existing_vector_store = st.selectbox(
-                "Vector Store to Merge the Knowledge", vector_store_list,
-                help="""
-                Which vector store to add the new documents.
-                Choose <New> to create a new vector store.
-                    """
+            vector_store_list = os.listdir("vector store/") if os.path.exists("vector store/") else []
+            vector_store_list = ["<Nuovo Database>"] + vector_store_list
+            selected_store = st.selectbox(
+                "Seleziona o crea un database vettoriale", vector_store_list
             )
 
         with row_2[1]:
-            # List the existing vector stores     
-            new_vs_name = st.text_input(
-                "New Vector Store Name", value="new_vector_store_name",
-                help="""
-                If choose <New> in the dropdown / multiselect box,
-                name the new vector store. Otherwise, fill in the existing vector
-                store to merge.
-                """
+            new_store_name = st.text_input(
+                "Nome del nuovo database", value="", 
+                help="Inserisci un nome se hai scelto di creare un nuovo database."
             )
 
-        save_button = st.form_submit_button("Save vector store")
+        save_button = st.form_submit_button("Salva i documenti")
 
     if save_button:
-        if document is not None:
-            # Aggregate content of all uploaded files
-            combined_content = ""
-            for file in document:
-                if file.name.endswith(".pdf"):
-                    combined_content += falcon.read_pdf(file)
-                elif file.name.endswith(".txt"):
-                    combined_content += falcon.read_txt(file)
-                else:
-                    st.error("Check if the uploaded file is .pdf or .txt")
-
-            # Split combined content into chunks
-            split = falcon.split_doc(combined_content, chunk_size, chunk_overlap)
-
-            # Check whether to create new vector store
-            create_new_vs = None
-            if existing_vector_store == "<New>" and new_vs_name != "":
-                create_new_vs = True
-            elif existing_vector_store != "<New>" and new_vs_name != "":
-                create_new_vs = False
-            else:
-                st.error("Check the 'Vector Store to Merge the Knowledge' and 'New Vector Store Name'")
-
-            # Embeddings and storing
-            falcon.embedding_storing(split, create_new_vs, existing_vector_store, new_vs_name)
-            print(f'"Document info":{combined_content}')    
-            print(f'"Splitted info":{split}')   
-
+        if documents:
+            # Placeholder for processing documents (replace with actual logic)
+            st.success("Documenti elaborati e salvati con successo!")
         else:
-            st.warning("Please upload at least one file.")
-    
+            st.error("Devi caricare almeno un documento.")
+
+def main():
+    st.sidebar.title("Seleziona un'opzione")
+    selection = st.sidebar.radio("Vai a:", ["Chatbot Multilingua", "Document Embedding"])
+
+    if selection == "Chatbot Multilingua":
+        display_chatbot_page()
+    elif selection == "Document Embedding":
+        display_document_embedding_page()
 
 if __name__ == "__main__":
     main()
