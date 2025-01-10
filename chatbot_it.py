@@ -118,7 +118,7 @@ def display_chatbot_page():
         answer, doc_source = falcon.generate_answer(question, token)
 
         # Translate answer to Italian
-        translated_result = await translator.translate(answer, src='en', dest='it')
+        translated_result = translator.translate(answer, src='en', dest='it')
         translated_answer = translated_result.text
 
         with st.chat_message("assistant"):
