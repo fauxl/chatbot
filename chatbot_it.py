@@ -69,9 +69,9 @@ def display_chatbot_page():
         st.session_state.history.append({"role": "assistant", "content": response})
 
     # Visualizza la cronologia
-    for message in st.session_state.history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    #for message in st.session_state.history:
+     #   with st.chat_message(message["role"]):
+      #      st.markdown(message["content"])
 
 def display_document_embedding_page():
     st.title("Document Embedding Page")
