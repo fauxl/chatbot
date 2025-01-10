@@ -13,7 +13,7 @@ document_content = ""
 def load_italian_model():
     global model, tokenizer
     if model is None or tokenizer is None:
-        model_name = "distilgpt2"  # Use a smaller model for better performance
+        model_name = "microsoft/DialoGPT-medium"  # Use a smaller model for better performance
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(model_name)
     return tokenizer, model
@@ -39,9 +39,6 @@ def extract_text_from_pdf(file):
 # Generate responses
 def generate_italian_response(question, tokenizer, model, document_content):
     try:
-        # Add a system-level instruction
-        system_prompt = "You are a helpful assistant that responds in Italian with accurate and concise answers.\n"
-        
         # Append document content as context
         if document_content:
             document_context = f"Here is relevant information from the document:\n{document_content}\n"
@@ -51,7 +48,7 @@ def generate_italian_response(question, tokenizer, model, document_content):
         # Limit conversation history to the last 5 exchanges
         MAX_HISTORY_LENGTH = 5
         recent_history = st.session_state.history[-MAX_HISTORY_LENGTH:]
-        conversation_history = system_prompt + document_context
+        conversation_history = document_context
         for message in recent_history:
             conversation_history += f"{message['role']}: {message['content']}\n"
         conversation_history += f"user: {question}\nassistant:"
