@@ -134,10 +134,10 @@ def display_chatbot_page():
         st.write(st.session_state.source)
 
 async def translate_text(textToTranslate):
-        async with Translator() as translator:
-        result = await translator.translate(textToTranslate, dest='it')
-        print(result.text)
-        return result.text# <Translated src=ko dest=en text=Good evening. pronunciation=Good evening.>
+    async with Translator() as translator:
+    result = await translator.translate(textToTranslate, dest='it')
+    print(result.text)
+    return result.text# <Translated src=ko dest=en text=Good evening. pronunciation=Good evening.>
     
 def display_document_embedding_page():
     st.title("Document Embedding Page")
