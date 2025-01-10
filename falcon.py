@@ -71,7 +71,7 @@ def embedding_storing( split, create_new_vs, existing_vector_store, new_vs_name)
 def prepare_rag_llm(
     token, vector_store_list, temperature, max_length
 ):
-    instructor_embeddings = HuggingFaceEmbeddings(model_name="llama-2", 
+    instructor_embeddings = HuggingFaceEmbeddings(model_name="google/flan-t5-large", 
                                            model_kwargs={'device': 'cpu'})
     # Load db
     loaded_db = FAISS.load_local(
