@@ -65,7 +65,7 @@ def display_chatbot_page():
                 llm_model = st.text_input("LLM model", value="GroNLP/gpt2-small-italian")
 
             with row_1[2]:
-                instruct_embeddings = st.text_input("Instruct Embeddings", value="dbmdz/bert-base-italian-cased")
+                instruct_embeddings = st.text_input("Instruct Embeddings", value="dbmdz/camembert-base-italian")
 
             row_2 = st.columns(3)
             with row_2[0]:
