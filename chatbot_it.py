@@ -146,7 +146,7 @@ def display_document_embedding_page():
         row_1 = st.columns([2, 1, 1])
         with row_1[0]:
             instruct_embeddings = st.text_input(
-                "Model Name of the Instruct Embeddings", value="dbmdz/bert-base-italian-cased"
+                "Model Name of the Instruct Embeddings", value="dbmdz/camembert-base-italian"
             )
         
         with row_1[1]:
