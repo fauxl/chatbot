@@ -109,7 +109,6 @@ def generate_answer(question, token):
         answer = "Insert the Hugging Face token"
         doc_source = ["no source"]
     else:
-        question = "Rispondi in italiano: " + question
         response = st.session_state.conversation({"question": question})
         answer = response.get("answer").split("Helpful Answer:")[-1].strip()
         explanation = response.get("source_documents", [])
