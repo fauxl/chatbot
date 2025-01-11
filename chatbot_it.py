@@ -65,7 +65,7 @@ def display_chatbot_page():
                 llm_model = st.text_input("LLM model", value="mistralai/Mistral-7B-v0.1")
 
             with row_1[2]:
-                instruct_embeddings = st.text_input("Instruct Embeddings", value="sentence-transformers/distiluse-base-multilingual-cased-v1")
+                instruct_embeddings = st.text_input("Instruct Embeddings", value="dbmdz/bert-base-italian-cased")
 
             row_2 = st.columns(3)
             with row_2[0]:
@@ -146,7 +146,7 @@ def display_document_embedding_page():
         row_1 = st.columns([2, 1, 1])
         with row_1[0]:
             instruct_embeddings = st.text_input(
-                "Model Name of the Instruct Embeddings", value="sentence-transformers/distiluse-base-multilingual-cased-v1"
+                "Model Name of the Instruct Embeddings", value="dbmdz/bert-base-italian-cased"
             )
         
         with row_1[1]:
