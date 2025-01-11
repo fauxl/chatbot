@@ -78,7 +78,7 @@ def prepare_rag_llm(
         f"vector store/{vector_store_list}", instructor_embeddings, allow_dangerous_deserialization=True
     )
     llm = HuggingFaceHub(
-        repo_id = 'meta-llama/Llama-2-13b-chat-hf',
+        repo_id = 'dbmdz/bert-base-italian-cased',
         model_kwargs={"temperature": temperature, "max_length": max_length},
         huggingfacehub_api_token=token
     )
