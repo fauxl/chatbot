@@ -62,7 +62,7 @@ def display_chatbot_page():
                 text = st.text_input("Hugging Face Token (No need to insert)", type='password',value= f"{'*' * len(os.getenv('API_KEY'))}")
 
             with row_1[1]:
-                llm_model = st.text_input("LLM model", value="mistralai/Mistral-7B-v0.1")
+                llm_model = st.text_input("LLM model", value="meta-llama/Llama-2-13b-chat-hf")
 
             with row_1[2]:
                 instruct_embeddings = st.text_input("Instruct Embeddings", value="dbmdz/bert-base-italian-cased")
