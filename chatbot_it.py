@@ -81,7 +81,7 @@ def display_chatbot_page():
                 temperature = st.number_input("Temperature", value=1.0, step=0.1)
 
             with row_2[2]:
-                max_length = st.number_input("Maximum character length", value=300, step=1)
+                max_length = st.number_input("Maximum character length", value=3000000, step=1)
 
             create_chatbot = st.form_submit_button("Launch chatbot")
 
