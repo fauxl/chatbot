@@ -44,7 +44,7 @@ def split_doc(document, chunk_size, chunk_overlap):
 
 def embedding_storing( split, create_new_vs, existing_vector_store, new_vs_name):
     if create_new_vs is not None:
-        instructor_embeddings =HuggingFaceEmbeddings(model_name="dbmdz/bert-base-italian-cased", 
+        instructor_embeddings =HuggingFaceEmbeddings(model_name="dbmdz/camembert-base-italian", 
                                            model_kwargs={'device': 'cpu'})
 
         # Implement embeddings
@@ -71,7 +71,7 @@ def embedding_storing( split, create_new_vs, existing_vector_store, new_vs_name)
 def prepare_rag_llm(
     token, vector_store_list, temperature, max_length
 ):
-    instructor_embeddings = HuggingFaceEmbeddings(model_name="dbmdz/bert-base-italian-cased", 
+    instructor_embeddings = HuggingFaceEmbeddings(model_name="dbmdz/camembert-base-italian", 
                                            model_kwargs={'device': 'cpu'})
     # Load db
     loaded_db = FAISS.load_local(
